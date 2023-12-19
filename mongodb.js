@@ -134,7 +134,7 @@ class MongoDb {
 
                 if (batch.length > 0) {
                     const db = this.dbClient.db('prod'); // Set your database name
-                    const collection = db.collection('nmea'); // Set your collection name
+                    const collection = db.collection('nmea_signalk_data'); // Set your collection name
 
                     await collection.insertMany(batch);
                     batch.forEach(point => {
