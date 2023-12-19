@@ -1,5 +1,12 @@
 const { MongoClient } = require('mongodb');
 
+const settings = {
+  housekeepingMillis: 30000, // time between performing regular housekeeping tasks
+  responseMillis: 10000,     // allow 10 seconds for the server to start sending
+  deadlineMillis: 25000,     // allow 25 seconds for the response to finish
+  defaultTtlMillis: 60000    // time-to-live in milliseconds
+};
+
 class MongoDb {
     buffer = new Map();
     options = null;
