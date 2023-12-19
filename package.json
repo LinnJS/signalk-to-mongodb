@@ -1,0 +1,19 @@
+{
+  "name": "signalk-to-mongodb",
+  "version": "0.1.0",
+  "description": "Signalk plugin to post data to mongodb uri",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-webapp",
+    "signalk-category-utility",
+    "signalk-category-cloud",
+    "signalk-category-nmea-2000"
+
+  ],
+  "author": "LinnJS <author@linnjs.com>",
+  "license": "MIT"
+}
