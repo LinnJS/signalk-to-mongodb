@@ -20,7 +20,10 @@ module.exports = function (app) {
     };
 
     plugin.handleUpdates = function (delta, pathOption) {
+        app.debug(`handleUpdates delta: ${JSON.stringify(delta)}`);
+        app.debug(`handleUpdates pathOption: ${JSON.stringify(pathOption)}`);
         delta.updates.forEach(update => {
+            app.debug(`handleUpdates update: ${JSON.stringify(update)}`);
             if (!update.values) {
                 return;
             }
@@ -47,6 +50,8 @@ module.exports = function (app) {
                         payload["self"] = true;
                     }
 
+                    app.debug(`handleUpdates sending payload: ${JSON.stringify(payload)}`);
+
                     mongodb.send(payload);
 
                 } catch (error) {
@@ -60,10 +65,13 @@ module.exports = function (app) {
         app.error("plugin started");
         options = opts;
         selfContext = getSelfContext();
+        app.info(`self context: ${selfContext}`);
         mongodb = new MongoDb(app, options.dbUri);
         mongodb.start(options);
 
         options.pathArray.forEach(pathOption => {
+            app.info('pathOption: ' + JSON.stringify(pathOption));
+
             if (pathOption.enabled === true) {
                 let localSubscription = {
                     "context": pathOption.context,

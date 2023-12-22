@@ -22,11 +22,12 @@ class MongoDb {
     constructor(app, dbUri) {
         this.app = app;
         this.dbUri = dbUri;
-        this.dbClient = new MongoClient(dbUri, { useNewUrlParser: true, useUnifiedTopology: true });
+        this.dbClient = new MongoClient(dbUri);
     }
 
     start(options) {
         this.app.debug(`mongodb options: ${JSON.stringify(options)}`);
+        console.debug(`mongodb options: ${JSON.stringify(options)}`);
         this.options = options;
         if (options.ttlSecs != null) {
             this.ttlMillis = options.ttlSecs * 1000;
@@ -77,6 +78,7 @@ class MongoDb {
                 hash2 = (hash2 * 33) ^ c;
             }
             point.uid = (hash1 >>> 0) * 4096 + (hash2 >>> 0);
+            console.debug(`got point in mongo: ${JSON.stringify(point)}`);
             return point;
 
         } catch (err) {
@@ -86,6 +88,9 @@ class MongoDb {
     };
 
     send = (point) => {
+        this.app.error(`sending point to mongo: ${point}`);
+        console.debug(`sending point to mongo: ${point}`)
+
         try {
             if (this.buffer.size >= this.options.maxBuffer) {
                 throw `buffer exceeded: ${this.buffer.size}`;
@@ -148,6 +153,7 @@ class MongoDb {
                         this.buffer.delete(point.uid);
                     });
                     this.app.debug(`Inserted ${batch.length} documents into MongoDB`);
+                    console.debug(`Inserted ${batch.length} documents into MongoDB`);
                 }
 
                 duration = new Date().getTime() - duration;
