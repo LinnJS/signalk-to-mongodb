@@ -65,12 +65,12 @@ module.exports = function (app) {
         app.debug("plugin started");
         options = opts;
         selfContext = getSelfContext();
-        app.info(`self context: ${selfContext}`);
+        app.debug(`self context: ${selfContext}`);
         mongodb = new MongoDb(app, options.dbUri);
         mongodb.start(options);
 
         options.pathArray.forEach(pathOption => {
-            app.info('pathOption: ' + JSON.stringify(pathOption));
+            app.debug('pathOption: ' + JSON.stringify(pathOption));
 
             if (pathOption.enabled === true) {
                 let localSubscription = {
