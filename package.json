@@ -1,6 +1,6 @@
 {
   "name": "signalk-to-mongodb",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Signalk plugin to post data to mongodb uri",
   "main": "index.js",
   "scripts": {

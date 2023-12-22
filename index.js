@@ -62,7 +62,7 @@ module.exports = function (app) {
     };
 
     plugin.start = function (opts, restart) {
-        app.error("plugin started");
+        app.debug("plugin started");
         options = opts;
         selfContext = getSelfContext();
         app.info(`self context: ${selfContext}`);
@@ -102,7 +102,10 @@ module.exports = function (app) {
     plugin.stop = function () {
         unsubscribes.forEach(f => f());
         unsubscribes = [];
-        mongodb.stop();
+        if (mongodb) {
+            mongodb.stop();
+            app.debug('mongo stopped');    
+        }
         app.debug('plugin stopped');
     };
 
