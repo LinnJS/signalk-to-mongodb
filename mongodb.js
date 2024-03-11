@@ -23,10 +23,7 @@ class MongoDb {
     constructor(app, dbUri) {
         this.app = app;
         this.dbUri = dbUri;
-        this.dbClient = new MongoClient(dbUri, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        });
+        this.dbClient = new MongoClient(dbUri);
     }
 
     async connect(retryCount = 5, retryDelay = 1000) {
