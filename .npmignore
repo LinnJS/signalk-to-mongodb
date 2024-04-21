@@ -26,6 +26,7 @@ docs/
 examples/
 *.md
 !README.md
+.github/
 
 # Design and media files
 assets/
