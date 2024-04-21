@@ -19,10 +19,14 @@ class MongoDb {
     isConnected = false; // Track connection status
 
     dbClient = null; // MongoDB client
+    database = null; // Database name
+    collection = null; // Collection name
 
-    constructor(app, dbUri) {
+    constructor(app, dbUri, database, collection) {
         this.app = app;
         this.dbUri = dbUri;
+        this.database = database;
+        this.collection = collection;
         this.dbClient = new MongoClient(dbUri);
     }
 
@@ -47,7 +51,7 @@ class MongoDb {
     }
 
     async start(options) {
-        this.app.debug(`mongodb options: ${JSON.stringify(options)}`);
+        this.app.debug(`MongoDB options: ${JSON.stringify(options)}`);
         this.options = options;
         await this.connect(); // Ensure connection before proceeding
         this.ttlMillis = options.ttlSecs ? options.ttlSecs * 1000 : this.ttlMillis;
@@ -140,8 +144,8 @@ class MongoDb {
                 batch.push(point);
             }
             if (batch.length > 0) {
-                const db = this.dbClient.db('prod'); // TODO: Add database name as plugin param
-                const collection = db.collection('nmea_signalk_data'); // TODO: Add collection name as plugin param
+                const db = this.dbClient.db(this.database); // Use configured database
+                const collection = db.collection(this.collection); // Use configured collection
                 await collection.insertMany(batch);
                 batch.forEach(point => this.buffer.delete(point.uid));
                 this.app.debug(`Inserted ${batch.length} documents into MongoDB`);
