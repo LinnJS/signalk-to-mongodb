@@ -1,28 +1,38 @@
 {
   "name": "signalk-to-mongodb",
   "version": "2.1.1",
-  "description": "Signalk plugin to store data to cloud hosted mongodb uri",
-  "author": "LinnJS <justin@linnjs.com>",
-  "license": "MIT",
+  "description": "SignalK plugin to store data to cloud hosted MongoDB URI. It provides an easy integration of SignalK server with MongoDB to log and store boat data in real-time.",
   "main": "index.js",
   "scripts": {
     "lint": "prettier --check .",
     "lint:fix": "prettier --write .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LinnJS/signalk-to-mongodb.git"
+  },
   "keywords": [
     "signalk-node-server-plugin",
     "signalk-category-utility",
     "signalk-category-cloud",
-    "signalk-category-nmea-2000"
+    "signalk-category-nmea-2000",
+    "signalk",
+    "mongodb",
+    "plugin",
+    "data-storage",
+    "cloud-storage",
+    "nmea-2000",
+    "marine",
+    "boating",
+    "yachting",
+    "sailing"
   ],
-  "husky": {
-    "hooks": {
-      "pre-commit": "npm run lint:fix"
-    }
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx,json,css,scss,md}": "prettier --write"
+  "author": "LinnJS <justin@linnjs.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/LinnJS/signalk-to-mongodb#readme",
+  "bugs": {
+    "url": "https://github.com/LinnJS/signalk-to-mongodb/issues"
   },
   "dependencies": {
     "mongodb": "^6.3.0"
@@ -31,5 +41,13 @@
     "husky": "^9.0.11",
     "lint-staged": "^15.2.2",
     "prettier": "^3.2.5"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run lint:fix"
+    }
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,css,scss,md}": "prettier --write"
   }
 }
