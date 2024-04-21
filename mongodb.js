@@ -147,6 +147,7 @@ class MongoDb {
         const db = this.dbClient.db(this.database); // Use configured database
         const collection = db.collection(this.collection); // Use configured collection
         await collection.insertMany(batch);
+        console.error(`MongoDB database: ${this.database}, collection: ${this.collection}`);
         batch.forEach(point => this.buffer.delete(point.uid));
         this.app.debug(`Inserted ${batch.length} documents into MongoDB`);
       }
