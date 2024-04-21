@@ -131,43 +131,42 @@ class MongoDb {
     return hash;
   }
 
-/**
- * Flushes the current buffer to MongoDB in batches.
- */
-async flush() {
-  if (this.flushing || !this.isConnected) {
+  /**
+   * Flushes the current buffer to MongoDB in batches.
+   */
+  async flush() {
+    if (this.flushing || !this.isConnected) {
       this.app.debug('Flush attempt skipped: either already flushing or not connected.');
       return;
-  }
+    }
 
-  if (this.buffer.size === 0) {
+    if (this.buffer.size === 0) {
       this.app.debug('Flush skipped: buffer is empty.');
       return; // Skip flushing and log that the buffer was empty
-  }
+    }
 
-  this.flushing = true;
-  const keysToDelete = [];
-  try {
+    this.flushing = true;
+    const keysToDelete = [];
+    try {
       const batch = Array.from(this.buffer.values()).slice(0, this.options.batchSize);
 
       if (batch.length > 0) {
-          const db = this.dbClient.db(this.database);
-          const coll = db.collection(this.collection);
-          await coll.insertMany(batch);
-          batch.forEach(point => keysToDelete.push(point.uid));
-          this.app.debug(`Flushed ${batch.length} points.`);
+        const db = this.dbClient.db(this.database);
+        const coll = db.collection(this.collection);
+        await coll.insertMany(batch);
+        batch.forEach(point => keysToDelete.push(point.uid));
+        this.app.debug(`Flushed ${batch.length} points.`);
       } else {
-          this.app.debug('Flush skipped: buffer is empty after preparation.');
+        this.app.debug('Flush skipped: buffer is empty after preparation.');
       }
-
-  } catch (err) {
+    } catch (err) {
       this.app.error(`Flush failed: ${err.message}`, err);
-  } finally {
+    } finally {
       keysToDelete.forEach(key => this.buffer.delete(key));
       this.flushExpiry = new Date(Date.now() + this.options.flushMillis);
       this.flushing = false;
+    }
   }
-}
 
   /**
    * Performs periodic cleanup and flushing tasks.
