@@ -21,10 +21,10 @@ Provide detailed steps for reproducing the issue:
 
 <!-- Please provide any relevant information about your setup. This is important in case the issue is not reproducible except for under certain conditions. -->
 
-* SignalK version:
-* MongoDB version:
-* Server type and version:
-* Operating System and version:
+- SignalK version:
+- MongoDB version:
+- Server type and version:
+- Operating System and version:
 
 ## Detailed Description
 
