@@ -31,23 +31,25 @@ The easiest way to install this plugin is through the SignalK App Store:
 If you prefer to install the plugin manually, follow these steps:
 
 1. **Clone the Plugin**:
-    ```bash
-    cd ~/.signalk
-    git clone https://github.com/yourusername/signalk-to-mongodb-plugin.git plugins/signalk-to-mongodb
-    ```
+
+   ```bash
+   cd ~/.signalk
+   git clone https://github.com/yourusername/signalk-to-mongodb-plugin.git plugins/signalk-to-mongodb
+   ```
 
 2. **Install Dependencies**:
-    Navigate to the plugin directory and install necessary NPM packages:
-    ```bash
-    cd plugins/signalk-to-mongodb
-    npm install
-    ```
+   Navigate to the plugin directory and install necessary NPM packages:
+
+   ```bash
+   cd plugins/signalk-to-mongodb
+   npm install
+   ```
 
 3. **Activate the Plugin**:
-    - Open your SignalK server dashboard.
-    - Go to **Server > Plugin Config**.
-    - Find **"SignalK to MongoDB"** and click the **Enable** button.
-    - Configure the plugin settings as necessary.
+   - Open your SignalK server dashboard.
+   - Go to **Server > Plugin Config**.
+   - Find **"SignalK to MongoDB"** and click the **Enable** button.
+   - Configure the plugin settings as necessary.
 
 ## Configuration
 
