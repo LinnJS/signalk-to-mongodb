@@ -1,6 +1,6 @@
 {
   "name": "signalk-to-mongodb",
-  "version": "2.0.1",
+  "version": "2.0.0",
   "description": "Signalk plugin to store data to cloud hosted mongodb uri",
   "main": "index.js",
   "scripts": {
