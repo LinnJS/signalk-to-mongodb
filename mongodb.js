@@ -1,161 +1,173 @@
 const { MongoClient } = require('mongodb');
 
+/**
+ * Default settings for MongoDB operations.
+ * @type {Object}
+ */
 const settings = {
-  housekeepingMillis: 30000, // time between performing regular housekeeping tasks
-  responseMillis: 10000, // allow 10 seconds for the server to start sending
-  deadlineMillis: 25000, // allow 25 seconds for the response to finish
-  defaultTtlMillis: 60000, // time-to-live in milliseconds
+  housekeepingMillis: 30000, // Interval for housekeeping tasks in milliseconds
+  responseMillis: 10000, // Maximum time to wait for the server to start responding
+  deadlineMillis: 25000, // Maximum time to wait for a full response
+  defaultTtlMillis: 60000, // Default time-to-live for data points in milliseconds
 };
 
+/**
+ * Class to handle MongoDB operations with buffered management for batch operations.
+ */
 class MongoDb {
-  buffer = new Map();
-  options = null;
-  app = null;
-  timer = null;
-  flushExpiry = new Date();
-  flushMillis = 0;
-  ttlMillis = settings.defaultTtlMillis;
-  flushing = false;
-  isConnected = false; // Track connection status
-
-  dbClient = null; // MongoDB client
-  database = null; // Database name
-  collection = null; // Collection name
-
+  /**
+   * Constructs the MongoDB utility object.
+   * @param {Object} app - The application interface for logging.
+   * @param {string} dbUri - The MongoDB connection URI.
+   * @param {string} database - The database name to connect to.
+   * @param {string} collection - The collection to use within the database.
+   */
   constructor(app, dbUri, database, collection) {
     this.app = app;
     this.dbUri = dbUri;
     this.database = database;
     this.collection = collection;
-    this.dbClient = new MongoClient(dbUri);
+    this.dbClient = new MongoClient(dbUri, { useNewUrlParser: true, useUnifiedTopology: true });
+    this.buffer = new Map();
+    this.flushExpiry = new Date();
+    this.flushMillis = 0;
+    this.ttlMillis = settings.defaultTtlMillis;
+    this.flushing = false;
+    this.isConnected = false;
   }
 
+  /**
+   * Connects to the MongoDB server with retries on failure.
+   * @param {number} [retryCount=5] - Maximum number of connection attempts.
+   * @param {number} [retryDelay=1000] - Initial delay between retries, increases exponentially.
+   * @throws {Error} Throws an error if all connection attempts fail.
+   */
   async connect(retryCount = 5, retryDelay = 1000) {
-    for (let attempt = 0; attempt <= retryCount; attempt++) {
+    for (let attempt = 0; attempt < retryCount; attempt++) {
       try {
         await this.dbClient.connect();
         this.isConnected = true;
-        this.app.debug('Connected to MongoDB');
-        return; // Exit if connection is successful
+        this.app.debug(`Successfully connected to MongoDB on attempt ${attempt + 1}`);
+        return;
       } catch (err) {
-        this.app.error(`Error connecting to MongoDB on attempt ${attempt}: ${err}`);
-        if (attempt === retryCount) {
-          this.app.error('All MongoDB connection attempts failed');
-          throw err; // Rethrow the last error or handle it as needed
+        this.app.error(`Failed to connect to MongoDB on attempt ${attempt + 1}: ${err.message}`);
+        if (attempt < retryCount - 1) {
+          let delay = retryDelay * Math.pow(2, attempt);
+          this.app.debug(`Retrying connection in ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
-        const delay = retryDelay * Math.pow(2, attempt);
-        this.app.debug(`Waiting ${delay}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, delay)); // Wait before retrying
       }
     }
+    this.app.error('All MongoDB connection attempts failed');
+    throw new Error('Unable to connect to MongoDB after multiple retries');
   }
 
+  /**
+   * Initializes and starts the MongoDB handler.
+   * @param {Object} options - Custom configuration options.
+   */
   async start(options) {
-    this.app.debug(`MongoDB options: ${JSON.stringify(options)}`);
-    this.options = options;
-    await this.connect(); // Ensure connection before proceeding
-    this.ttlMillis = options.ttlSecs ? options.ttlSecs * 1000 : this.ttlMillis;
-    this.flushMillis = options.flushSecs ? options.flushSecs * 1000 : this.flushMillis;
-    this.flushExpiry = new Date(Date.now() + this.flushMillis);
-    this.timer = setInterval(this.housekeeping.bind(this), options.housekeepingMillis);
+    this.options = { ...settings, ...options };
+    await this.connect();
+    this.timer = setInterval(() => this.housekeeping(), this.options.housekeepingMillis);
+    this.app.debug('MongoDB handler has started');
   }
 
+  /**
+   * Stops the MongoDB handler and cleans up resources.
+   */
   async stop() {
+    clearInterval(this.timer);
     await this.flush();
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
-    }
-    if (this.dbClient) {
-      await this.dbClient.close();
-      this.isConnected = false;
-      this.app.debug('MongoDB connection closed');
-    }
+    await this.dbClient.close();
+    this.isConnected = false;
+    this.app.debug('MongoDB connection closed');
   }
 
-  getPoint(point) {
-    try {
-      point.time = point.time ? new Date(point.time) : new Date();
-      point.expiry = new Date(Date.now() + this.ttlMillis);
-      let json = JSON.stringify(point);
-      let i = json.length;
-      let hash1 = 5381;
-      let hash2 = 52711;
-      while (i--) {
-        const c = json.charCodeAt(i);
-        hash1 = (hash1 * 33) ^ c;
-        hash2 = (hash2 * 33) ^ c;
-      }
-      point.uid = (hash1 >>> 0) * 4096 + (hash2 >>> 0);
-      this.app.debug(`Received point in mongo: ${JSON.stringify(point)}`);
-      return point;
-    } catch (err) {
-      this.app.error(`getPoint error: ${err}`);
-      return null;
-    }
-  }
-
+  /**
+   * Processes and queues a single data point for MongoDB insertion.
+   * @param {Object} point - The data point to process and send.
+   */
   async send(point) {
     if (!this.isConnected) {
-      await this.connect(); // Attempt to reconnect if not connected
+      this.app.error('Attempting to reconnect to MongoDB');
+      await this.connect();
     }
-    if (this.isConnected) {
-      try {
-        if (this.buffer.size >= this.options.maxBuffer) {
-          throw `Buffer exceeded: ${this.buffer.size}`;
-        }
-        point = this.getPoint(point);
-        if (!point) return; // Ensure point is valid before proceeding
-        this.buffer.set(point.uid, point);
-        if (this.buffer.size >= this.options.batchSize || Date.now() > this.flushExpiry) {
-          await this.flush();
-        }
-      } catch (err) {
-        this.app.error(`Send error: ${err}`);
+    try {
+      const enrichedPoint = this.preparePoint(point);
+      this.buffer.set(enrichedPoint.uid, enrichedPoint);
+      if (this.buffer.size >= this.options.batchSize || Date.now() > this.flushExpiry) {
+        await this.flush();
       }
-    } else {
-      this.app.error('Unable to send data: MongoDB connection is not established');
+    } catch (err) {
+      this.app.error(`Error sending data: ${err}`);
     }
   }
 
-  housekeeping() {
-    const timeNow = new Date();
-    for (const [key, point] of this.buffer) {
-      if (timeNow > point.expiry) {
-        this.buffer.delete(key);
-      }
-    }
-    if (timeNow > this.flushExpiry) {
-      this.flush();
-    }
+  /**
+   * Prepares a data point by adding necessary metadata.
+   * @param {Object} point - The raw data point.
+   * @returns {Object} The enriched data point.
+   */
+  preparePoint(point) {
+    point.time = point.time ? new Date(point.time) : new Date();
+    point.expiry = new Date(Date.now() + this.ttlMillis);
+    point.uid = this.generateUID(JSON.stringify(point));
+    return point;
   }
 
+  /**
+   * Generates a unique identifier for a data point based on its JSON string representation.
+   * @param {string} json - The JSON string of the data point.
+   * @returns {number} The hash-based unique identifier.
+   */
+  generateUID(json) {
+    let hash = 0;
+    for (let i = 0; i < json.length; i++) {
+      const character = json.charCodeAt(i);
+      hash = (hash << 5) - hash + character;
+      hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+  }
+
+  /**
+   * Flushes the current buffer to MongoDB in batches.
+   */
   async flush() {
     if (this.flushing || !this.isConnected) return;
     this.flushing = true;
-    let batches = Math.ceil(this.buffer.size / this.options.batchSize);
-    const bufferIterator = this.buffer.values();
-    while (batches--) {
-      let duration = Date.now();
-      let batch = [];
-      for (let i = 0; i < this.options.batchSize; i++) {
-        const point = bufferIterator.next().value;
-        if (!point) break;
-        batch.push(point);
-      }
-      if (batch.length > 0) {
-        const db = this.dbClient.db(this.database); // Use configured database
-        const collection = db.collection(this.collection); // Use configured collection
-        await collection.insertMany(batch);
-        console.error(`MongoDB database: ${this.database}, collection: ${this.collection}`);
-        batch.forEach(point => this.buffer.delete(point.uid));
-        this.app.debug(`Inserted ${batch.length} documents into MongoDB`);
-      }
-      duration = Date.now() - duration;
-      this.app.debug(`Flushed ${batch.length} points in ${duration} msec`);
+    const keysToDelete = [];
+    try {
+      const batch = Array.from(this.buffer.values()).slice(0, this.options.batchSize);
+      const db = this.dbClient.db(this.database);
+      const coll = db.collection(this.collection);
+      await coll.insertMany(batch);
+      batch.forEach(point => keysToDelete.push(point.uid));
+      this.app.debug(`Flushed ${batch.length} points.`);
+    } catch (err) {
+      this.app.error(`Flush failed: ${err}`);
+    } finally {
+      keysToDelete.forEach(key => this.buffer.delete(key));
+      this.flushExpiry = new Date(Date.now() + this.flushMillis);
+      this.flushing = false;
     }
-    this.flushExpiry = new Date(Date.now() + this.flushMillis);
-    this.flushing = false;
+  }
+
+  /**
+   * Performs periodic cleanup and flushing tasks.
+   */
+  housekeeping() {
+    const now = new Date();
+    for (const [key, point] of this.buffer.entries()) {
+      if (point.expiry < now) {
+        this.buffer.delete(key);
+      }
+    }
+    if (now > this.flushExpiry) {
+      this.flush().catch(err => this.app.error(`Housekeeping flush failed: ${err}`));
+    }
+    this.app.debug('Housekeeping completed');
   }
 }
 

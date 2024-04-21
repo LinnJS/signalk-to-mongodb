@@ -1,27 +1,49 @@
 const { MongoDb } = require('./mongodb');
 
+/**
+ * @fileoverview This file contains a SignalK plugin that sends data to MongoDB.
+ * For more information, please refer to the Signalk plugin documentation:
+ * {@link https://demo.signalk.org/documentation/develop/plugins/server_plugin.html}
+ */
+``;
+
+/**
+ * Factory function to create a SignalK plugin that sends data to MongoDB.
+ * @param {Object} app - The SignalK server application instance.
+ * @returns {Object} The plugin object with start and stop capabilities.
+ */
 module.exports = function (app) {
-  var plugin = {};
-  var options = null;
-  var mongodb = null;
-  var unsubscribes = [];
+  let plugin = {};
+  let options = null;
+  let mongodb = null;
+  let unsubscribes = [];
   let selfContext;
 
+  /**
+   * Determines the 'self' context from the SignalK server settings.
+   * @returns {string|null} The self context string or null if not found.
+   */
   let getSelfContext = function () {
     const selfUuid = app.getSelfPath('uuid');
     const selfMmsi = app.getSelfPath('mmsi');
 
-    if (selfUuid != null) {
+    if (selfUuid) {
       return 'vessels.' + selfUuid;
-    } else if (selfMmsi != null) {
+    } else if (selfMmsi) {
       return 'vessels.urn:mrn:imo:mmsi:' + selfMmsi.toString();
     }
     return null;
   };
 
+  /**
+   * Handles incoming data updates from SignalK paths and forwards them to MongoDB.
+   * @param {Object} delta - The SignalK delta message containing updates.
+   * @param {Object} pathOption - Configuration for specific SignalK path handling.
+   */
   plugin.handleUpdates = function (delta, pathOption) {
     app.debug(`handleUpdates delta: ${JSON.stringify(delta)}`);
     app.debug(`handleUpdates pathOption: ${JSON.stringify(pathOption)}`);
+
     delta.updates.forEach(update => {
       app.debug(`handleUpdates update: ${JSON.stringify(update)}`);
       if (!update.values) {
@@ -46,32 +68,36 @@ module.exports = function (app) {
             payload[tag.name] = tag.value;
           });
 
-          if (options.tagAsSelf === true && delta.context.localeCompare(selfContext) === 0) {
+          if (options.tagAsSelf && delta.context.localeCompare(selfContext) === 0) {
             payload['self'] = true;
           }
 
           app.debug(`handleUpdates sending payload: ${JSON.stringify(payload)}`);
-
           mongodb.send(payload);
         } catch (error) {
-          app.error(`skipping update: ${JSON.stringify(val)} error: ${JSON.stringify(error)}`);
+          app.error(`Skipping update due to error: ${JSON.stringify(val)}, error: ${error.message}`);
         }
       });
     });
   };
 
+  /**
+   * Starts the plugin, setting up MongoDB connection and subscriptions to SignalK paths.
+   * @param {Object} opts - Configuration options for the plugin.
+   * @param {Function} restart - Callback to restart the plugin with new settings.
+   */
   plugin.start = function (opts, restart) {
-    app.debug('plugin started');
+    app.debug('Plugin started');
     options = opts;
     selfContext = getSelfContext();
-    app.debug(`self context: ${selfContext}`);
+    app.debug(`Self context: ${selfContext}`);
     mongodb = new MongoDb(app, options.dbUri, options.database, options.collection);
     mongodb.start(options);
 
     options.pathArray.forEach(pathOption => {
-      app.debug('pathOption: ' + JSON.stringify(pathOption));
+      app.debug('Configuring pathOption: ' + JSON.stringify(pathOption));
 
-      if (pathOption.enabled === true) {
+      if (pathOption.enabled) {
         let localSubscription = {
           context: pathOption.context,
           subscribe: [
@@ -87,45 +113,43 @@ module.exports = function (app) {
           localSubscription,
           unsubscribes,
           subscriptionError => {
-            app.error('error: ' + subscriptionError);
+            app.error(`Subscription error: ${subscriptionError}`);
           },
           delta => {
             this.handleUpdates(delta, pathOption);
           }
         );
-        app.debug(`added subscription to: ${JSON.stringify(localSubscription)}`);
+        app.debug(`Added subscription for: ${JSON.stringify(localSubscription)}`);
       } else {
-        app.error(`skipping subscription to: ${pathOption.context}/.../${pathOption.path}`);
+        app.error(`Skipping subscription for: ${pathOption.context}/.../${pathOption.path}`);
       }
     });
   };
 
+  /**
+   * Stops the plugin, unsubscribing from all paths and closing MongoDB connection.
+   */
   plugin.stop = function () {
     unsubscribes.forEach(f => f());
     unsubscribes = [];
     if (mongodb) {
       mongodb.stop();
-      app.debug('mongo stopped');
+      app.debug('MongoDB connection stopped');
     }
-    app.debug('plugin stopped');
+    app.debug('Plugin stopped');
   };
 
+  // Plugin metadata and schema for configuration
   plugin.id = 'signalk-to-mongodb';
-  plugin.name = 'SignalK to MongoDB URI';
-  plugin.description = 'Signalk plugin to send data to any mongoDB URI';
+  plugin.name = 'SignalK to MongoDB Plugin';
+  plugin.description = 'This plugin sends SignalK data updates to a configured MongoDB instance.';
+
+  // Plugin configuration schema
   plugin.schema = {
     type: 'object',
     properties: {
-      dbUri: {
-        type: 'string',
-        title: 'MongoDB URI',
-        description: 'The URI to connect to your MongoDB instance',
-      },
-      database: {
-        type: 'string',
-        title: 'Database Name',
-        description: 'The name of the MongoDB database to use',
-      },
+      dbUri: { type: 'string', title: 'MongoDB URI', description: 'The URI to connect to your MongoDB instance' },
+      database: { type: 'string', title: 'Database Name', description: 'The name of the MongoDB database to use' },
       collection: {
         type: 'string',
         title: 'Collection Name',
@@ -170,14 +194,8 @@ module.exports = function (app) {
         items: {
           type: 'object',
           properties: {
-            name: {
-              type: 'string',
-              title: 'Tag Name',
-            },
-            value: {
-              type: 'string',
-              title: 'Tag Value',
-            },
+            name: { type: 'string', title: 'Tag Name' },
+            value: { type: 'string', title: 'Tag Value' },
           },
           required: ['name', 'value'],
         },
@@ -201,11 +219,7 @@ module.exports = function (app) {
               title: 'SignalK context',
               description: "Context to record, e.g., 'self' for own ship, 'vessels.*' for all vessels",
             },
-            path: {
-              type: 'string',
-              title: 'SignalK path',
-              description: "Path to record, e.g., 'navigation.position'",
-            },
+            path: { type: 'string', title: 'SignalK path', description: "Path to record, e.g., 'navigation.position'" },
             interval: {
               type: 'number',
               title: 'Recording interval',
@@ -220,14 +234,8 @@ module.exports = function (app) {
               items: {
                 type: 'object',
                 properties: {
-                  name: {
-                    type: 'string',
-                    title: 'Tag Name',
-                  },
-                  value: {
-                    type: 'string',
-                    title: 'Tag Value',
-                  },
+                  name: { type: 'string', title: 'Tag Name' },
+                  value: { type: 'string', title: 'Tag Value' },
                 },
                 required: ['name', 'value'],
               },
