@@ -1,0 +1,44 @@
+# Dependency directories
+node_modules/
+
+# Development-specific files
+coverage/
+test/
+tests/
+__tests__/
+scripts/
+.travis.yml
+.github/
+.gitlab-ci.yml
+azure-pipelines.yml
+jenkinsfile
+
+# Prettier configuration and ignore files
+.prettierrc
+.prettierrc.yml
+.prettierrc.toml
+.prettierrc.js
+.prettierrc.json
+.prettierignore
+
+# Documentation & Examples
+docs/
+examples/
+*.md
+!README.md
+
+# Design and media files
+assets/
+media/
+design/
+
+# Miscellaneous
+*.log
+*.sql
+*.db
+
+# Husky - keep it out of your package
+.husky/
+husky.sh
+.huskyrc
+husky.config.js
