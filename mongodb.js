@@ -1,10 +1,10 @@
 const { MongoClient } = require('mongodb');
 
 const settings = {
-  housekeepingMillis: 30000, // time between performing regular housekeeping tasks
-  responseMillis: 10000,     // allow 10 seconds for the server to start sending
-  deadlineMillis: 25000,     // allow 25 seconds for the response to finish
-  defaultTtlMillis: 60000    // time-to-live in milliseconds
+    housekeepingMillis: 30000, // time between performing regular housekeeping tasks
+    responseMillis: 10000,     // allow 10 seconds for the server to start sending
+    deadlineMillis: 25000,     // allow 25 seconds for the response to finish
+    defaultTtlMillis: 60000    // time-to-live in milliseconds
 };
 
 class MongoDb {
@@ -50,28 +50,18 @@ class MongoDb {
         this.app.debug(`mongodb options: ${JSON.stringify(options)}`);
         this.options = options;
         await this.connect(); // Ensure connection before proceeding
-        if (options.ttlSecs != null) {
-            this.ttlMillis = options.ttlSecs * 1000;
-        }
-
-        if (this.options.flushSecs != null) {
-            if (this.options.flushSecs > 0) {
-                this.flushMillis = this.options.flushSecs * 1000;
-                this.flushExpiry = new Date(new Date().getTime() + this.flushMillis);
-            }
-        }
-
+        this.ttlMillis = options.ttlSecs ? options.ttlSecs * 1000 : this.ttlMillis;
+        this.flushMillis = options.flushSecs ? options.flushSecs * 1000 : this.flushMillis;
+        this.flushExpiry = new Date(Date.now() + this.flushMillis);
         this.timer = setInterval(this.housekeeping.bind(this), options.housekeepingMillis);
     }
 
     async stop() {
-        this.flush();
-
+        await this.flush();
         if (this.timer) {
             clearInterval(this.timer);
             this.timer = null;
         }
-
         if (this.dbClient) {
             await this.dbClient.close();
             this.isConnected = false;
@@ -81,12 +71,8 @@ class MongoDb {
 
     getPoint(point) {
         try {
-            if (point.time == null) {
-                point.time = new Date();
-            }
-
-            point.expiry = new Date(new Date().getTime() + this.ttlMillis);
-
+            point.time = point.time ? new Date(point.time) : new Date();
+            point.expiry = new Date(Date.now() + this.ttlMillis);
             let json = JSON.stringify(point);
             let i = json.length;
             let hash1 = 5381;
@@ -97,9 +83,8 @@ class MongoDb {
                 hash2 = (hash2 * 33) ^ c;
             }
             point.uid = (hash1 >>> 0) * 4096 + (hash2 >>> 0);
-            this.app.debug(`got point in mongo: ${JSON.stringify(point)}`);
+            this.app.debug(`Received point in mongo: ${JSON.stringify(point)}`);
             return point;
-
         } catch (err) {
             this.app.error(`getPoint error: ${err}`);
             return null;
@@ -113,19 +98,16 @@ class MongoDb {
         if (this.isConnected) {
             try {
                 if (this.buffer.size >= this.options.maxBuffer) {
-                    throw `buffer exceeded: ${this.buffer.size}`;
+                    throw `Buffer exceeded: ${this.buffer.size}`;
                 }
-
                 point = this.getPoint(point);
-                if (point == null) return; // Ensure point is valid before proceeding
+                if (!point) return; // Ensure point is valid before proceeding
                 this.buffer.set(point.uid, point);
-
-                const timeNow = new Date();
-                if (this.buffer.size >= this.options.batchSize || timeNow > this.flushExpiry) {
-                    this.flush();
+                if (this.buffer.size >= this.options.batchSize || Date.now() > this.flushExpiry) {
+                    await this.flush();
                 }
             } catch (err) {
-                this.app.error(`send error: ${err}`);
+                this.app.error(`Send error: ${err}`);
             }
         } else {
             this.app.error('Unable to send data: MongoDB connection is not established');
@@ -139,46 +121,36 @@ class MongoDb {
                 this.buffer.delete(key);
             }
         }
-
         if (timeNow > this.flushExpiry) {
             this.flush();
         }
     }
 
     async flush() {
-        if (this.flushing === true || !this.isConnected) return;
-
-        try {
-            this.flushing = true;
-            let batches = Math.ceil(this.buffer.size / this.options.batchSize);
-            const bufferIterator = this.buffer.values();
-
-            while (batches--) {
-                let duration = new Date().getTime();
-                let batch = [];
-                for (let i = 0; i < this.options.batchSize; i++) {
-                    const point = bufferIterator.next().value;
-                    if (!point) break;
-                    batch.push(point);
-                }
-
-                if (batch.length > 0) {
-                    const db = this.dbClient.db('prod'); // Adjust your database name
-                    const collection = db.collection('nmea_signalk_data'); // Adjust your collection name
-                    await collection.insertMany(batch);
-                    batch.forEach(point => this.buffer.delete(point.uid));
-                    this.app.debug(`Inserted ${batch.length} documents into MongoDB`);
-                }
-
-                duration = new Date().getTime() - duration;
-                this.app.debug(`Flushed ${batch.length} points in ${duration} msec`);
+        if (this.flushing || !this.isConnected) return;
+        this.flushing = true;
+        let batches = Math.ceil(this.buffer.size / this.options.batchSize);
+        const bufferIterator = this.buffer.values();
+        while (batches--) {
+            let duration = Date.now();
+            let batch = [];
+            for (let i = 0; i < this.options.batchSize; i++) {
+                const point = bufferIterator.next().value;
+                if (!point) break;
+                batch.push(point);
             }
-        } catch (err) {
-            this.app.error(`flush error: ${err}`);
-        } finally {
-            this.flushExpiry = new Date(new Date().getTime() + this.flushMillis);
-            this.flushing = false;
+            if (batch.length > 0) {
+                const db = this.dbClient.db('prod'); // TODO: Add database name as plugin param
+                const collection = db.collection('nmea_signalk_data'); // TODO: Add collection name as plugin param
+                await collection.insertMany(batch);
+                batch.forEach(point => this.buffer.delete(point.uid));
+                this.app.debug(`Inserted ${batch.length} documents into MongoDB`);
+            }
+            duration = Date.now() - duration;
+            this.app.debug(`Flushed ${batch.length} points in ${duration} msec`);
         }
+        this.flushExpiry = new Date(Date.now() + this.flushMillis);
+        this.flushing = false;
     }
 }
 
