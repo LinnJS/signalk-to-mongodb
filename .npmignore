@@ -36,3 +36,9 @@ design/
 *.log
 *.sql
 *.db
+
+# Husky - keep it out of your package
+.husky/
+husky.sh
+.huskyrc
+husky.config.js

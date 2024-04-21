@@ -1,7 +1,9 @@
 {
   "name": "signalk-to-mongodb",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Signalk plugin to store data to cloud hosted mongodb uri",
+  "author": "LinnJS <justin@linnjs.com>",
+  "license": "MIT",
   "main": "index.js",
   "scripts": {
     "lint": "prettier --check .",
@@ -14,12 +16,20 @@
     "signalk-category-cloud",
     "signalk-category-nmea-2000"
   ],
-  "author": "LinnJS <justin@linnjs.com>",
-  "license": "MIT",
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,css,scss,md}": "prettier --write"
+  },
   "dependencies": {
     "mongodb": "^6.3.0"
   },
   "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
     "prettier": "^3.2.5"
   }
 }
