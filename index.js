@@ -65,7 +65,7 @@ module.exports = function (app) {
     options = opts;
     selfContext = getSelfContext();
     app.debug(`self context: ${selfContext}`);
-    mongodb = new MongoDb(app, options.dbUri);
+    mongodb = new MongoDb(app, options.dbUri, options.database, options.collection);
     mongodb.start(options);
 
     options.pathArray.forEach(pathOption => {
