@@ -1,6 +1,6 @@
 {
   "name": "signalk-to-mongodb",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "SignalK plugin to store data to cloud hosted MongoDB URI. It provides an easy integration of SignalK server with MongoDB to log and store boat data in real-time.",
   "main": "index.js",
   "scripts": {
