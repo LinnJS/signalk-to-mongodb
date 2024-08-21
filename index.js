@@ -56,16 +56,33 @@ module.exports = function (app) {
             source: update['$source'],
             context: delta.context,
             path: val.path,
-            time: update.timestamp,
+            time: new Date(update.timestamp), // Ensure time is stored as Date
+            uid: this.generateUID(JSON.stringify(val)), // Generate UID from the value
           };
 
+          // Determine the type of value and handle accordingly
           if (val.path === 'navigation.position') {
-            payload.value = {
-              type: 'Point',
-              coordinates: [val.value.longitude, val.value.latitude],
-            };
-          } else {
+            // Ensure GeoJSON format for navigation.position
+            if (typeof val.value === 'object' && val.value.latitude && val.value.longitude) {
+              payload.value = {
+                type: 'Point',
+                coordinates: [val.value.longitude, val.value.latitude],
+              };
+            } else {
+              // Handle invalid or unexpected structures
+              app.error(`Invalid position value: ${JSON.stringify(val.value)}`);
+              return;
+            }
+          } else if (typeof val.value === 'number' || typeof val.value === 'string') {
+            // Store numbers and strings directly
             payload.value = val.value;
+          } else if (typeof val.value === 'object') {
+            // Store JSON objects directly
+            payload.value = val.value;
+          } else {
+            // Handle unexpected types (e.g., undefined, NaN)
+            app.error(`Unexpected value type: ${typeof val.value} for path: ${val.path}`);
+            return;
           }
 
           options.defaultTags.forEach(tag => {
