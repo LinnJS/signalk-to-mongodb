@@ -56,9 +56,17 @@ module.exports = function (app) {
             source: update['$source'],
             context: delta.context,
             path: val.path,
-            value: val.value,
             time: update.timestamp,
           };
+
+          if (val.path === 'navigation.position') {
+            payload.value = {
+              type: 'Point',
+              coordinates: [val.value.longitude, val.value.latitude],
+            };
+          } else {
+            payload.value = val.value;
+          }
 
           options.defaultTags.forEach(tag => {
             payload[tag.name] = tag.value;
