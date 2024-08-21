@@ -43,13 +43,13 @@ module.exports = function (app) {
   plugin.handleUpdates = function (delta, pathOption) {
     app.debug(`handleUpdates delta: ${JSON.stringify(delta)}`);
     app.debug(`handleUpdates pathOption: ${JSON.stringify(pathOption)}`);
-  
+
     delta.updates.forEach(update => {
       app.debug(`handleUpdates update: ${JSON.stringify(update)}`);
       if (!update.values) {
         return;
       }
-  
+
       update.values.forEach(val => {
         try {
           let payload = {
@@ -57,16 +57,16 @@ module.exports = function (app) {
             context: delta.context,
             path: val.path,
             time: new Date(update.timestamp), // Ensure time is stored as Date
-            uid: this.generateUID(JSON.stringify(val)) // Generate UID from the value
+            uid: this.generateUID(JSON.stringify(val)), // Generate UID from the value
           };
-  
+
           // Determine the type of value and handle accordingly
           if (val.path === 'navigation.position') {
             // Ensure GeoJSON format for navigation.position
             if (typeof val.value === 'object' && val.value.latitude && val.value.longitude) {
               payload.value = {
-                type: "Point",
-                coordinates: [val.value.longitude, val.value.latitude]
+                type: 'Point',
+                coordinates: [val.value.longitude, val.value.latitude],
               };
             } else {
               // Handle invalid or unexpected structures
@@ -84,19 +84,19 @@ module.exports = function (app) {
             app.error(`Unexpected value type: ${typeof val.value} for path: ${val.path}`);
             return;
           }
-  
+
           options.defaultTags.forEach(tag => {
             payload[tag.name] = tag.value;
           });
-  
+
           pathOption.pathTags.forEach(tag => {
             payload[tag.name] = tag.value;
           });
-  
+
           if (options.tagAsSelf && delta.context.localeCompare(selfContext) === 0) {
             payload['self'] = true;
           }
-  
+
           app.debug(`handleUpdates sending payload: ${JSON.stringify(payload)}`);
           mongodb.send(payload);
         } catch (error) {
@@ -105,8 +105,6 @@ module.exports = function (app) {
       });
     });
   };
-  
-  
 
   /**
    * Starts the plugin, setting up MongoDB connection and subscriptions to SignalK paths.
