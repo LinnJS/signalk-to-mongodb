@@ -43,35 +43,43 @@ module.exports = function (app) {
   plugin.handleUpdates = function (delta, pathOption) {
     app.debug(`handleUpdates delta: ${JSON.stringify(delta)}`);
     app.debug(`handleUpdates pathOption: ${JSON.stringify(pathOption)}`);
-
+  
     delta.updates.forEach(update => {
       app.debug(`handleUpdates update: ${JSON.stringify(update)}`);
       if (!update.values) {
         return;
       }
-
+  
       update.values.forEach(val => {
         try {
           let payload = {
             source: update['$source'],
             context: delta.context,
             path: val.path,
-            value: val.value,
             time: update.timestamp,
           };
-
+  
+          if (val.path === 'navigation.position') {
+            payload.value = {
+              type: "Point",
+              coordinates: [val.value.longitude, val.value.latitude]
+            };
+          } else {
+            payload.value = val.value;
+          }
+  
           options.defaultTags.forEach(tag => {
             payload[tag.name] = tag.value;
           });
-
+  
           pathOption.pathTags.forEach(tag => {
             payload[tag.name] = tag.value;
           });
-
+  
           if (options.tagAsSelf && delta.context.localeCompare(selfContext) === 0) {
             payload['self'] = true;
           }
-
+  
           app.debug(`handleUpdates sending payload: ${JSON.stringify(payload)}`);
           mongodb.send(payload);
         } catch (error) {
@@ -80,6 +88,7 @@ module.exports = function (app) {
       });
     });
   };
+  
 
   /**
    * Starts the plugin, setting up MongoDB connection and subscriptions to SignalK paths.
