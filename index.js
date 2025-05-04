@@ -57,7 +57,6 @@ module.exports = function (app) {
             context: delta.context,
             path: val.path,
             time: new Date(update.timestamp), // Ensure time is stored as Date
-            uid: this.generateUID(JSON.stringify(val)), // Generate UID from the value
           };
 
           // Determine the type of value and handle accordingly
